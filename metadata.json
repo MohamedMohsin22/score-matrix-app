@@ -1,0 +1,6 @@
+{
+  "name": "Score Matrix",
+  "description": "Score Matrix - Premier League 2026/2027 Score Predictor & Mini-Leagues app with live countdowns, match scoring, chips, and classic & H2H leagues.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

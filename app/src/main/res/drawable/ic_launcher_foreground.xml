@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 1. Dark Sports Shield Base -->
+    <path
+        android:fillColor="#161B22"
+        android:strokeColor="#2D3748"
+        android:strokeWidth="1.2"
+        android:pathData="M54,23 L79,29 L78,54 C76,70 64,80 54,85 C44,80 32,70 30,54 L29,29 Z" />
+
+    <!-- 2. Dual-Accent Shield Wings: Left Wing Neon Green (#00FF87) -->
+    <path
+        android:fillColor="#00FF87"
+        android:pathData="M27,33 L31,34 L32,54 C33,67 42,75 51,79 L49,81 C38,77 28,68 27,53 Z" />
+
+    <!-- Right Wing Cyber Cyan (#04F5FF) -->
+    <path
+        android:fillColor="#04F5FF"
+        android:pathData="M81,33 L77,34 L76,54 C75,67 66,75 57,79 L59,81 C70,77 80,68 81,53 Z" />
+
+    <!-- 3. Small Crown Crest at Top Apex -->
+    <path
+        android:fillColor="#E2E8F0"
+        android:pathData="M50,25 L48,22 L51,23.5 L54,21 L57,23.5 L60,22 L58,25 Z" />
+
+    <!-- 4. Centered 3D Football Base -->
+    <path
+        android:fillColor="#0D1117"
+        android:strokeColor="#4A5568"
+        android:strokeWidth="1.0"
+        android:pathData="M54,34 C43.5,34 35,42.5 35,53 C35,63.5 43.5,72 54,72 C64.5,72 73,63.5 73,53 C73,42.5 64.5,34 54,34 Z" />
+
+    <!-- Wireframe grid on football -->
+    <path
+        android:strokeColor="#334155"
+        android:strokeWidth="0.8"
+        android:fillColor="#00000000"
+        android:pathData="M54,34 C47,34 42,42.5 42,53 C42,63.5 47,72 54,72 C61,72 66,63.5 66,53 C66,42.5 61,34 54,34 Z" />
+    <path
+        android:strokeColor="#334155"
+        android:strokeWidth="0.8"
+        android:fillColor="#00000000"
+        android:pathData="M35,53 C35,46 43.5,43 54,43 C64.5,43 73,46 73,53 C73,60 64.5,63 54,63 C43.5,63 35,60 35,53 Z" />
+
+    <!-- Center pentagon -->
+    <path
+        android:fillColor="#1A202C"
+        android:strokeColor="#718096"
+        android:strokeWidth="0.8"
+        android:pathData="M54,49 L58,52 L56.5,57 L51.5,57 L50,52 Z" />
+
+    <!-- Radar Rings (Illuminated Green) -->
+    <path
+        android:strokeColor="#00FF87"
+        android:strokeWidth="0.8"
+        android:fillColor="#00000000"
+        android:pathData="M54,45 C49.6,45 46,48.6 46,53 C46,57.4 49.6,61 54,61 C58.4,61 62,57.4 62,53 C62,48.6 58.4,45 54,45 Z" />
+
+    <path
+        android:strokeColor="#3300FF87"
+        android:strokeWidth="0.6"
+        android:fillColor="#00000000"
+        android:pathData="M54,39 C46.3,39 40,45.3 40,53 C40,60.7 46.3,67 54,67 C61.7,67 68,60.7 68,53 C68,45.3 61.7,39 54,39 Z" />
+
+    <!-- Radar Sweep in upper right -->
+    <path
+        android:fillColor="#3000FF87"
+        android:pathData="M54,53 L68,43 A19,19 0 0 0 54,34 Z" />
+
+    <!-- 5. Illuminated Radar Crosshair Reticle -->
+    <!-- Horizontal Crosshair Beam (Neon Green into Cyan) -->
+    <path
+        android:strokeColor="#00FF87"
+        android:strokeWidth="1.4"
+        android:pathData="M32,53 L54,53" />
+    <path
+        android:strokeColor="#04F5FF"
+        android:strokeWidth="1.4"
+        android:pathData="M54,53 L76,53" />
+
+    <!-- Vertical Crosshair Beam -->
+    <path
+        android:strokeColor="#00FF87"
+        android:strokeWidth="1.4"
+        android:pathData="M54,32 L54,74" />
+
+    <!-- Center Reticle Bullseye Point -->
+    <path
+        android:fillColor="#04F5FF"
+        android:pathData="M54,51.5 A1.5,1.5 0 1 1 54,54.5 A1.5,1.5 0 1 1 54,51.5" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,52.4 A0.6,0.6 0 1 1 54,53.6 A0.6,0.6 0 1 1 54,52.4" />
+</vector>
