@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -199,6 +200,7 @@ fun ProfileScreenContent(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .then(if (!isDialog) Modifier.statusBarsPadding() else Modifier)
             .background(
                 brush = Brush.verticalGradient(
                     colors = if (isDialog) {
@@ -215,18 +217,24 @@ fun ProfileScreenContent(
                 )
             )
     ) {
-        // Top Action Bar with Manager Title
+        // Compact Profile Header: Avatar and Name
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = if (isDialog) 14.dp else 16.dp),
+                .padding(
+                    horizontal = 16.dp,
+                    vertical = if (isDialog) 12.dp else 10.dp
+                ),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f, fill = false)
+            ) {
                 Box(
                     modifier = Modifier
-                        .size(if (isDialog) 38.dp else 44.dp)
+                        .size(if (isDialog) 36.dp else 40.dp)
                         .clip(CircleShape)
                         .border(1.5.dp, PlMint, CircleShape),
                     contentAlignment = Alignment.Center
@@ -250,7 +258,7 @@ fun ProfileScreenContent(
                         ) {
                             Text(
                                 text = currentUser.presetCrestCode,
-                                fontSize = if (isDialog) 11.sp else 13.sp,
+                                fontSize = if (isDialog) 11.sp else 12.sp,
                                 fontWeight = FontWeight.Black,
                                 color = txt
                             )
@@ -274,15 +282,15 @@ fun ProfileScreenContent(
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(
-                        text = "Manager Profile & Showcase",
+                        text = currentUser?.username ?: "Manager",
                         fontSize = if (isDialog) 16.sp else 18.sp,
                         fontWeight = FontWeight.Black,
                         color = PlTextPrimary
                     )
                     Text(
-                        text = currentUser?.username ?: "Manager",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = "FPL Manager",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = PlMint
                     )
                 }
@@ -303,32 +311,6 @@ fun ProfileScreenContent(
                         tint = Color.White,
                         modifier = Modifier.size(18.dp)
                     )
-                }
-            } else {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = PlMint.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, PlMint.copy(alpha = 0.3f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(PlMint)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "OFFICIAL HUB",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Black,
-                            color = PlMint,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
                 }
             }
         }

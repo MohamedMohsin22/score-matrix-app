@@ -77,15 +77,17 @@ fun MainScreen(
             .fillMaxSize()
             .background(PlPlumBackground),
         topBar = {
-            PLHeader(
-                gameweek = uiState.gameweek,
-                currentUser = uiState.currentUser,
-                countdownText = uiState.deadlineCountdown,
-                isDeadlineLocked = uiState.isDeadlineLocked,
-                onOpenAdmin = { viewModel.setAdminSheetOpen(true) },
-                onOpenProfile = { selectedTab = 3 },
-                onOpenRules = { isRulesSheetOpen = true }
-            )
+            if (selectedTab != 3) {
+                PLHeader(
+                    gameweek = uiState.gameweek,
+                    currentUser = uiState.currentUser,
+                    countdownText = uiState.deadlineCountdown,
+                    isDeadlineLocked = uiState.isDeadlineLocked,
+                    onOpenAdmin = { viewModel.setAdminSheetOpen(true) },
+                    onOpenProfile = { selectedTab = 3 },
+                    onOpenRules = { isRulesSheetOpen = true }
+                )
+            }
         },
         bottomBar = {
             NavigationBar(
