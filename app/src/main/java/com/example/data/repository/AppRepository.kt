@@ -13,8 +13,10 @@ import com.example.data.local.entity.PredictionEntity
 import com.example.data.local.entity.UserEntity
 import com.example.data.model.BadgeEvaluationEngine
 import com.example.data.model.MatchScoringEngine
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import kotlin.random.Random
 
@@ -27,6 +29,8 @@ class AppRepository(context: Context) {
     private val chipDao = db.chipDao()
     private val leagueDao = db.leagueDao()
     private val badgeDao = db.badgeDao()
+
+    private val firestore by lazy { FirebaseFirestore.getInstance() }
 
     val fplRepository = FplRepository(context)
     val fplSyncState = fplRepository.syncState
@@ -77,10 +81,9 @@ class AppRepository(context: Context) {
         }
 
         val now = System.currentTimeMillis()
-        val kickoffFirstMatch = now + (26 * 3600 * 1000L) // upcoming round, first kickoff
-        val deadline = kickoffFirstMatch - (60 * 60 * 1000L) // strictly 60 mins before first match kickoff
+        val kickoffFirstMatch = now + (26 * 3600 * 1000L)
+        val deadline = kickoffFirstMatch - (60 * 60 * 1000L)
 
-        // Active Gameweek 4 (Upcoming round to predict)
         val gw4 = GameweekEntity(
             gwNumber = 4,
             season = "2026/2027",
@@ -91,7 +94,6 @@ class AppRepository(context: Context) {
             fixtureCountType = "STANDARD"
         )
 
-        // Gameweek 3 (Just finished/evaluated round)
         val gw3 = GameweekEntity(
             gwNumber = 3,
             season = "2026/2027",
@@ -103,7 +105,6 @@ class AppRepository(context: Context) {
         )
         gameweekDao.insertGameweeks(listOf(gw3, gw4))
 
-        // Seed Users with early-season totals (after GW 1, 2, and 3)
         val primaryUser = UserEntity(
             id = "user_primary",
             username = "PremierMaster",
@@ -126,14 +127,11 @@ class AppRepository(context: Context) {
 
         userDao.insertUsers(listOf(primaryUser) + demoOpponents)
 
-        // Seed Chips: 4 Chips available for Season Half 1 (GW 1-19) and Half 2 (GW 20-38)
         val chips = listOf(
-            // Half 1 (Available for active upcoming GW 4!)
             ChipEntity("${primaryUser.id}_SUPER_CAPTAIN_1", primaryUser.id, "SUPER_CAPTAIN", half = 1, usedInGw = null, isUsed = false),
             ChipEntity("${primaryUser.id}_SAFETY_NET_1", primaryUser.id, "SAFETY_NET", half = 1, usedInGw = null, isUsed = false),
             ChipEntity("${primaryUser.id}_AUTO_CAPTAIN_1", primaryUser.id, "AUTO_CAPTAIN", half = 1, usedInGw = null, isUsed = false),
             ChipEntity("${primaryUser.id}_DOUBLE_SHOT_1", primaryUser.id, "DOUBLE_SHOT", half = 1, usedInGw = null, isUsed = false),
-            // Half 2 (Reserved for GW 20-38)
             ChipEntity("${primaryUser.id}_SUPER_CAPTAIN_2", primaryUser.id, "SUPER_CAPTAIN", half = 2, usedInGw = null, isUsed = false),
             ChipEntity("${primaryUser.id}_SAFETY_NET_2", primaryUser.id, "SAFETY_NET", half = 2, usedInGw = null, isUsed = false),
             ChipEntity("${primaryUser.id}_AUTO_CAPTAIN_2", primaryUser.id, "AUTO_CAPTAIN", half = 2, usedInGw = null, isUsed = false),
@@ -141,17 +139,14 @@ class AppRepository(context: Context) {
         )
         chipDao.insertChips(chips)
 
-        // Seed Standard 10 Fixtures for GW 4 (Upcoming - predictions active)
         val fixturesGw4 = createStandardFixtures(4, kickoffFirstMatch)
         fixtureDao.insertFixtures(fixturesGw4)
 
-        // Seed Gameweek 3 Fixtures & User Predictions (Completed - points breakdown available)
         val fixturesGw3 = createGameweek3Fixtures(kickoffFirstMatch)
         fixtureDao.insertFixtures(fixturesGw3)
         val predictionsGw3 = createGameweek3Predictions(primaryUser.id)
         predictionDao.insertPredictions(predictionsGw3)
 
-        // Seed Default Leagues (One Classic, One H2H)
         val classicLeague = LeagueEntity(
             id = "league_classic_1",
             name = "Premier League Global Top 100",
@@ -173,7 +168,6 @@ class AppRepository(context: Context) {
         leagueDao.insertLeague(classicLeague)
         leagueDao.insertLeague(h2hLeague)
 
-        // Seed League Members
         val allUsers = listOf(primaryUser) + demoOpponents
 
         val classicMembers = allUsers.mapIndexed { index, user ->
@@ -184,12 +178,11 @@ class AppRepository(context: Context) {
                 userName = user.username,
                 totalPoints = user.totalScore,
                 gwPoints = user.currentGwScore,
-                isGwMvp = (index == 0) // Opp1 was GW 3 MVP
+                isGwMvp = (index == 0)
             )
         }
         leagueDao.insertLeagueMembers(classicMembers)
 
-        // Seed H2H Standings
         val h2hMembers = allUsers.mapIndexed { index, user ->
             val played = 3
             val won = when (index) {
@@ -222,7 +215,6 @@ class AppRepository(context: Context) {
         }
         leagueDao.insertLeagueMembers(h2hMembers)
 
-        // Seed H2H pairings for GW 4
         val matchups = listOf(
             H2HMatchupEntity("h2h_gw4_1", h2hLeague.id, 4, primaryUser.id, primaryUser.username, 0, "user_opp1", "DeclanSpecial", 0),
             H2HMatchupEntity("h2h_gw4_2", h2hLeague.id, 4, "user_opp2", "KloppGegenpress", 0, "user_opp3", "HaalandBorg", 0),
@@ -231,7 +223,6 @@ class AppRepository(context: Context) {
         )
         leagueDao.insertH2HMatchups(matchups)
 
-        // Seed Initial Badges for Primary User
         val primaryBadges = BadgeEvaluationEngine.createInitialBadgesForUser(primaryUser.id)
         badgeDao.insertBadges(primaryBadges)
     }
@@ -332,9 +323,7 @@ class AppRepository(context: Context) {
     }
 
     suspend fun setCaptain(userId: String, fixtureId: String, gwNumber: Int, isSuper: Boolean) {
-        // Clear previous captain for this gameweek (Single Strict Captain Engine)
         predictionDao.clearCaptainForGw(userId, gwNumber)
-        // Clear Auto Captain if active
         predictionDao.clearAutoCaptainForGw(userId, gwNumber)
 
         val existing = predictionDao.getPrediction(userId, fixtureId)
@@ -355,11 +344,10 @@ class AppRepository(context: Context) {
     }
 
     suspend fun setSafetyNet(userId: String, fixtureId: String, gwNumber: Int) {
-        // One Chip per Gameweek Rule: Clear any other active chips
         predictionDao.clearSafetyNetForGw(userId, gwNumber)
         predictionDao.clearDoubleShotForGw(userId, gwNumber)
         predictionDao.clearAutoCaptainForGw(userId, gwNumber)
-        // If super captain was set, revert to standard captain
+
         val currentCaptain = predictionDao.getPredictionsList(userId, gwNumber).find { it.isSuperCaptain }
         if (currentCaptain != null) {
             predictionDao.insertOrUpdatePrediction(currentCaptain.copy(isCaptain = true, isSuperCaptain = false))
@@ -382,11 +370,10 @@ class AppRepository(context: Context) {
     }
 
     suspend fun setDoubleShot(userId: String, fixtureId: String, gwNumber: Int) {
-        // One Chip per Gameweek Rule: Clear any other active chips
         predictionDao.clearSafetyNetForGw(userId, gwNumber)
         predictionDao.clearDoubleShotForGw(userId, gwNumber)
         predictionDao.clearAutoCaptainForGw(userId, gwNumber)
-        // If super captain was set, revert to standard captain
+
         val currentCaptain = predictionDao.getPredictionsList(userId, gwNumber).find { it.isSuperCaptain }
         if (currentCaptain != null) {
             predictionDao.insertOrUpdatePrediction(currentCaptain.copy(isCaptain = true, isSuperCaptain = false))
@@ -416,8 +403,6 @@ class AppRepository(context: Context) {
     }
 
     suspend fun setAutoCaptain(userId: String, gwNumber: Int) {
-        // One Chip per Gameweek Rule & Auto Captain rules:
-        // Disables manual captain pick, clears previous captain & other chips
         predictionDao.clearCaptainForGw(userId, gwNumber)
         predictionDao.clearSafetyNetForGw(userId, gwNumber)
         predictionDao.clearDoubleShotForGw(userId, gwNumber)
@@ -427,7 +412,6 @@ class AppRepository(context: Context) {
             val updated = preds.map { it.copy(isAutoCaptain = true, isCaptain = false, isSuperCaptain = false) }
             predictionDao.insertPredictions(updated)
         } else {
-            // Seed marker prediction
             val marker = PredictionEntity(
                 id = "${userId}_autocaptain_marker",
                 userId = userId,
@@ -487,7 +471,6 @@ class AppRepository(context: Context) {
 
         val userScores = mutableMapOf<String, Int>()
 
-        // 1. Calculate Primary User predictions
         val currentUser = userDao.getCurrentUser()
         if (currentUser != null) {
             val userPreds = predictionDao.getPredictionsList(currentUser.id, gwNumber).filter { it.fixtureId != "marker" }
@@ -495,7 +478,6 @@ class AppRepository(context: Context) {
 
             val isAutoCaptainActive = userPreds.any { it.isAutoCaptain }
 
-            // Auto Captain Engine: If active, dynamically find the fixture that scores the highest natural points
             var autoCaptainFixtureId: String? = null
             if (isAutoCaptainActive && userPreds.isNotEmpty()) {
                 var maxBasePts = -1
@@ -572,7 +554,6 @@ class AppRepository(context: Context) {
             userDao.updateUser(updatedUser)
             userScores[currentUser.id] = totalGwPts
 
-            // Mark used chips in seasonal quota
             val half = if (gwNumber <= 19) 1 else 2
             val hasSuperCaptain = updatedPreds.any { it.isSuperCaptain }
             val hasSafetyNet = updatedPreds.any { it.isSafetyNet }
@@ -600,7 +581,6 @@ class AppRepository(context: Context) {
             }
         }
 
-        // 2. Simulate AI/Opponent scores realistically based on actual scores
         val random = Random(gwNumber * 42)
         for (opp in users.filter { !it.isCurrentUser }) {
             var oppGwPts = 0
@@ -608,19 +588,17 @@ class AppRepository(context: Context) {
                 if (fix.homeScoreActual != null && fix.awayScoreActual != null) {
                     val roll = random.nextInt(100)
                     val pts = when {
-                        roll < 30 -> 3 // exact score
-                        roll < 65 -> 1 // correct outcome
+                        roll < 30 -> 3
+                        roll < 65 -> 1
                         else -> 0
                     }
                     oppGwPts += pts
                 }
             }
-            // Add slight captain bonus
             oppGwPts += random.nextInt(2, 6)
             userScores[opp.id] = oppGwPts
         }
 
-        // 3. Update League Members & MVP Badge
         val leagues = leagueDao.getAllLeagues().firstOrNull() ?: emptyList()
         for (league in leagues) {
             val members = leagueDao.getLeagueMembersList(league.id)
@@ -637,7 +615,6 @@ class AppRepository(context: Context) {
                 leagueDao.insertLeagueMembers(updatedMembers)
             }
 
-            // If H2H League, evaluate matchups
             if (league.type == "H2H") {
                 val matchups = leagueDao.getH2HMatchupsList(league.id, gwNumber)
                 val updatedMatchups = matchups.map { match ->
@@ -660,7 +637,6 @@ class AppRepository(context: Context) {
                 }
                 leagueDao.insertH2HMatchups(updatedMatchups)
 
-                // Update H2H standings table
                 val membersMap = leagueDao.getLeagueMembersList(league.id).associateBy { it.userId }.toMutableMap()
                 for (m in updatedMatchups) {
                     val mem1 = membersMap[m.user1Id]
@@ -711,7 +687,6 @@ class AppRepository(context: Context) {
             gameweekDao.updateGameweek(gw.copy(isEvaluated = true))
         }
 
-        // Automated Badge Evaluation Engine: Evaluate & award badges to user profile state
         val activeUser = userDao.getCurrentUser()
         if (activeUser != null) {
             evaluateBadgesForUser(activeUser.id, gwNumber)
@@ -745,7 +720,7 @@ class AppRepository(context: Context) {
         badgeDao.insertBadges(evaluatedBadges)
     }
 
-    suspend fun switchFixtureScenario(scenario: String) { // "STANDARD", "DOUBLE", "BLANK"
+    suspend fun switchFixtureScenario(scenario: String) {
         val gw = gameweekDao.getCurrentGameweek() ?: return
         val baseKickoff = gw.kickoffFirstMatchMs
         val hour = 3600 * 1000L
@@ -754,14 +729,12 @@ class AppRepository(context: Context) {
 
         val fixtures = when (scenario) {
             "DOUBLE" -> {
-                // 12 fixtures
                 createStandardFixtures(gw.gwNumber, baseKickoff) + listOf(
                     FixtureEntity("fix_dgw_1", gw.gwNumber, "Arsenal", "ARS", "Aston Villa", "AVL", baseKickoff + 72 * hour, "Tue 20:00", null, null, false, 56, 24, 20, isDoubleGameweekExtra = true),
                     FixtureEntity("fix_dgw_2", gw.gwNumber, "Chelsea", "CHE", "Liverpool", "LIV", baseKickoff + 73 * hour, "Wed 20:15", null, null, false, 38, 30, 32, isDoubleGameweekExtra = true)
                 )
             }
             "BLANK" -> {
-                // 8 fixtures (2 postponed due to Cup final)
                 createStandardFixtures(gw.gwNumber, baseKickoff).take(8)
             }
             else -> {
@@ -773,14 +746,8 @@ class AppRepository(context: Context) {
         gameweekDao.updateGameweek(gw.copy(fixtureCountType = scenario))
     }
 
-    /**
-     * Rolling Transition Engine:
-     * When Gameweek N kicks off, Gameweek N enters live read-only mode, and
-     * Gameweek N+1 automatically opens and unlocks for user predictions.
-     */
     suspend fun transitionToNextGameweek(currentGwNumber: Int) {
         val currentGw = gameweekDao.getGameweekByNumber(currentGwNumber) ?: return
-        // Lock and mark current GW as in-play
         gameweekDao.updateGameweek(currentGw.copy(isDeadlinePassed = true, isNext = false))
 
         val nextGwNumber = currentGwNumber + 1
@@ -810,9 +777,6 @@ class AppRepository(context: Context) {
         }
     }
 
-// Firebase Firestore Instance
-    private val firestore by lazy { com.google.firebase.firestore.FirebaseFirestore.getInstance() }
-
     suspend fun createLeague(name: String, type: String): LeagueEntity {
         val user = userDao.getCurrentUser()
         val userId = user?.id ?: "user_primary"
@@ -839,7 +803,6 @@ class AppRepository(context: Context) {
             gwPoints = 0
         )
 
-        // 1. الحفظ السحابي في Firestore ليصبح متاحاً لكل المستخدمين
         try {
             val leagueData = hashMapOf(
                 "id" to league.id,
@@ -858,15 +821,13 @@ class AppRepository(context: Context) {
                 "gwPoints" to member.gwPoints
             )
 
-            val db = firestore
-            val leagueRef = db.collection("leagues").document(league.id)
-            kotlinx.coroutines.tasks.await(leagueRef.set(leagueData))
-            kotlinx.coroutines.tasks.await(leagueRef.collection("members").document(member.id).set(memberData))
+            val leagueRef = firestore.collection("leagues").document(league.id)
+            leagueRef.set(leagueData).await()
+            leagueRef.collection("members").document(member.id).set(memberData).await()
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
-        // 2. الحفظ في قاعدة البيانات المحلية Room
         leagueDao.insertLeague(league)
         leagueDao.insertLeagueMember(member)
 
@@ -880,12 +841,10 @@ class AppRepository(context: Context) {
         val userName = user?.username ?: "Manager"
 
         return try {
-            // 1. البحث السحابي في Firestore أولاً
-            val querySnapshot = kotlinx.coroutines.tasks.await(
-                firestore.collection("leagues")
-                    .whereEqualTo("inviteCode", cleanCode)
-                    .get()
-            )
+            val querySnapshot = firestore.collection("leagues")
+                .whereEqualTo("inviteCode", cleanCode)
+                .get()
+                .await()
 
             if (!querySnapshot.isEmpty) {
                 val doc = querySnapshot.documents[0]
@@ -907,7 +866,6 @@ class AppRepository(context: Context) {
                     gwPoints = 0
                 )
 
-                // إضافة العضو سحابياً في Firestore
                 val memberData = hashMapOf(
                     "id" to newMember.id,
                     "leagueId" to newMember.leagueId,
@@ -916,21 +874,18 @@ class AppRepository(context: Context) {
                     "totalPoints" to newMember.totalPoints,
                     "gwPoints" to newMember.gwPoints
                 )
-                kotlinx.coroutines.tasks.await(
-                    firestore.collection("leagues")
-                        .document(remoteLeague.id)
-                        .collection("members")
-                        .document(newMember.id)
-                        .set(memberData)
-                )
+                firestore.collection("leagues")
+                    .document(remoteLeague.id)
+                    .collection("members")
+                    .document(newMember.id)
+                    .set(memberData)
+                    .await()
 
-                // مزامنة الدوري والعضو محلياً في جهاز الصديق
                 leagueDao.insertLeague(remoteLeague)
                 leagueDao.insertLeagueMember(newMember)
 
                 Result.success(remoteLeague)
             } else {
-                // محاولة البحث محلياً كخيار احتياطي
                 val localLeague = leagueDao.getLeagueByInviteCode(cleanCode)
                 if (localLeague != null) {
                     val member = LeagueMemberEntity(
@@ -948,7 +903,6 @@ class AppRepository(context: Context) {
                 }
             }
         } catch (e: Exception) {
-            // في حالة فشل الاتصال بالسيرفر، البحث محلياً
             val localLeague = leagueDao.getLeagueByInviteCode(cleanCode)
             if (localLeague != null) {
                 val member = LeagueMemberEntity(
@@ -965,7 +919,6 @@ class AppRepository(context: Context) {
                 Result.failure(IllegalArgumentException(e.localizedMessage ?: "Failed to join league"))
             }
         }
-    }
     }
 
     suspend fun loginOrRegister(
@@ -1003,7 +956,6 @@ class AppRepository(context: Context) {
             )
             userDao.insertUser(newUser)
 
-            // Initialize all 4 chips for new user across Half 1 & Half 2
             val chips = listOf(
                 ChipEntity("${newUser.id}_SUPER_CAPTAIN_1", newUser.id, "SUPER_CAPTAIN", half = 1, usedInGw = null, isUsed = false),
                 ChipEntity("${newUser.id}_SAFETY_NET_1", newUser.id, "SAFETY_NET", half = 1, usedInGw = null, isUsed = false),
@@ -1016,7 +968,6 @@ class AppRepository(context: Context) {
             )
             chipDao.insertChips(chips)
 
-            // Initialize badges for new user
             val badges = BadgeEvaluationEngine.createInitialBadgesForUser(newUser.id)
             badgeDao.insertBadges(badges)
 
