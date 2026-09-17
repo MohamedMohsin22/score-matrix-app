@@ -102,8 +102,9 @@ dependencies {
   implementation(libs.converter.moshi)
   implementation(libs.converter.gson)
   implementation(libs.firebase.ai)
-  // Uncomment to use Firestore:
-  // implementation(libs.firebase.firestore)
+ // Uncomment to use Firestore:
+  implementation(libs.firebase.firestore)
+  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
   // Uncomment ALL FOUR of the following dependencies together to use Firebase Auth and Google
   // Sign-In via Credential Manager:

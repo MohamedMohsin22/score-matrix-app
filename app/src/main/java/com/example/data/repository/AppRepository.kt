@@ -810,21 +810,26 @@ class AppRepository(context: Context) {
         }
     }
 
+// Firebase Firestore Instance
+    private val firestore by lazy { com.google.firebase.firestore.FirebaseFirestore.getInstance() }
+
     suspend fun createLeague(name: String, type: String): LeagueEntity {
         val user = userDao.getCurrentUser()
         val userId = user?.id ?: "user_primary"
         val userName = user?.username ?: "Manager"
         val code = generateInviteCode()
+        val leagueId = "league_${UUID.randomUUID()}"
+        val now = System.currentTimeMillis()
+
         val league = LeagueEntity(
-            id = "league_${UUID.randomUUID()}",
+            id = leagueId,
             name = name,
             type = type,
             inviteCode = code,
-            creatorId = userId
+            creatorId = userId,
+            createdAt = now
         )
-        leagueDao.insertLeague(league)
 
-        // Add creator as member
         val member = LeagueMemberEntity(
             id = "${league.id}_$userId",
             leagueId = league.id,
@@ -833,29 +838,134 @@ class AppRepository(context: Context) {
             totalPoints = user?.totalScore ?: 0,
             gwPoints = 0
         )
+
+        // 1. الحفظ السحابي في Firestore ليصبح متاحاً لكل المستخدمين
+        try {
+            val leagueData = hashMapOf(
+                "id" to league.id,
+                "name" to league.name,
+                "type" to league.type,
+                "inviteCode" to league.inviteCode,
+                "creatorId" to league.creatorId,
+                "createdAt" to league.createdAt
+            )
+            val memberData = hashMapOf(
+                "id" to member.id,
+                "leagueId" to member.leagueId,
+                "userId" to member.userId,
+                "userName" to member.userName,
+                "totalPoints" to member.totalPoints,
+                "gwPoints" to member.gwPoints
+            )
+
+            val db = firestore
+            val leagueRef = db.collection("leagues").document(league.id)
+            kotlinx.coroutines.tasks.await(leagueRef.set(leagueData))
+            kotlinx.coroutines.tasks.await(leagueRef.collection("members").document(member.id).set(memberData))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // 2. الحفظ في قاعدة البيانات المحلية Room
+        leagueDao.insertLeague(league)
         leagueDao.insertLeagueMember(member)
 
         return league
     }
 
     suspend fun joinLeagueByCode(code: String): Result<LeagueEntity> {
-        val league = leagueDao.getLeagueByInviteCode(code.trim())
-            ?: return Result.failure(IllegalArgumentException("League with code '$code' not found."))
-
+        val cleanCode = code.trim().uppercase()
         val user = userDao.getCurrentUser()
         val userId = user?.id ?: "user_primary"
         val userName = user?.username ?: "Manager"
 
-        val member = LeagueMemberEntity(
-            id = "${league.id}_$userId",
-            leagueId = league.id,
-            userId = userId,
-            userName = userName,
-            totalPoints = user?.totalScore ?: 0,
-            gwPoints = 0
-        )
-        leagueDao.insertLeagueMember(member)
-        return Result.success(league)
+        return try {
+            // 1. البحث السحابي في Firestore أولاً
+            val querySnapshot = kotlinx.coroutines.tasks.await(
+                firestore.collection("leagues")
+                    .whereEqualTo("inviteCode", cleanCode)
+                    .get()
+            )
+
+            if (!querySnapshot.isEmpty) {
+                val doc = querySnapshot.documents[0]
+                val remoteLeague = LeagueEntity(
+                    id = doc.getString("id") ?: doc.id,
+                    name = doc.getString("name") ?: "League",
+                    type = doc.getString("type") ?: "CLASSIC",
+                    inviteCode = doc.getString("inviteCode") ?: cleanCode,
+                    creatorId = doc.getString("creatorId") ?: "",
+                    createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis()
+                )
+
+                val newMember = LeagueMemberEntity(
+                    id = "${remoteLeague.id}_$userId",
+                    leagueId = remoteLeague.id,
+                    userId = userId,
+                    userName = userName,
+                    totalPoints = user?.totalScore ?: 0,
+                    gwPoints = 0
+                )
+
+                // إضافة العضو سحابياً في Firestore
+                val memberData = hashMapOf(
+                    "id" to newMember.id,
+                    "leagueId" to newMember.leagueId,
+                    "userId" to newMember.userId,
+                    "userName" to newMember.userName,
+                    "totalPoints" to newMember.totalPoints,
+                    "gwPoints" to newMember.gwPoints
+                )
+                kotlinx.coroutines.tasks.await(
+                    firestore.collection("leagues")
+                        .document(remoteLeague.id)
+                        .collection("members")
+                        .document(newMember.id)
+                        .set(memberData)
+                )
+
+                // مزامنة الدوري والعضو محلياً في جهاز الصديق
+                leagueDao.insertLeague(remoteLeague)
+                leagueDao.insertLeagueMember(newMember)
+
+                Result.success(remoteLeague)
+            } else {
+                // محاولة البحث محلياً كخيار احتياطي
+                val localLeague = leagueDao.getLeagueByInviteCode(cleanCode)
+                if (localLeague != null) {
+                    val member = LeagueMemberEntity(
+                        id = "${localLeague.id}_$userId",
+                        leagueId = localLeague.id,
+                        userId = userId,
+                        userName = userName,
+                        totalPoints = user?.totalScore ?: 0,
+                        gwPoints = 0
+                    )
+                    leagueDao.insertLeagueMember(member)
+                    Result.success(localLeague)
+                } else {
+                    Result.failure(IllegalArgumentException("League with code '$cleanCode' not found."))
+                }
+            }
+        } catch (e: Exception) {
+            // في حالة فشل الاتصال بالسيرفر، البحث محلياً
+            val localLeague = leagueDao.getLeagueByInviteCode(cleanCode)
+            if (localLeague != null) {
+                val member = LeagueMemberEntity(
+                    id = "${localLeague.id}_$userId",
+                    leagueId = localLeague.id,
+                    userId = userId,
+                    userName = userName,
+                    totalPoints = user?.totalScore ?: 0,
+                    gwPoints = 0
+                )
+                leagueDao.insertLeagueMember(member)
+                Result.success(localLeague)
+            } else {
+                Result.failure(IllegalArgumentException(e.localizedMessage ?: "Failed to join league"))
+            }
+        }
+    }
     }
 
     suspend fun loginOrRegister(
